@@ -1,0 +1,64 @@
+require 'selenium-webdriver'
+require 'capybara/rspec'
+require_relative 'spec_helper'
+
+Capybara.default_driver = :selenium_chrome
+
+RSpec.describe 'SauceDemo End-to-End Tests' do
+  around(:each) do |example|
+    @session = Capybara::Session.new(:selenium_chrome)
+    @base_url = 'https://www.saucedemo.com'
+    @session.visit @base_url
+    example.run
+    @session.reset_session!
+  end
+
+  describe 'User Authentication Tests' do
+    let(:password) { 'secret_sauce' }
+
+    shared_examples 'login tests' do |user, pass, expected_message|
+      it "verifies login behavior for #{user}" do
+        authenticate(user, pass)
+        if expected_message
+          verify_error_message(expected_message)
+        else
+          expect(@session).to have_selector('[data-test="title"]', text: 'Products')
+        end
+      end
+    end
+
+    context 'with various user accounts' do
+      include_examples 'login tests', 'error_user', 'incorrect_password', "Epic sadface: Username and password do not match any user in this service"
+      include_examples 'login tests', 'locked_out_user', 'secret_sauce', "Epic sadface: Sorry, this user has been locked out."
+      include_examples 'login tests', 'standard_user', 'secret_sauce', nil
+    end
+  end
+
+  describe 'Cart Functionality Tests' do
+    it 'adds multiple items to cart after login' do
+      authenticate('standard_user', 'secret_sauce')
+      items_to_add = ['sauce-labs-backpack', 'sauce-labs-fleece-jacket']
+      items_to_add.each { |item| add_to_cart(item) }
+      expect(@session).to have_selector('[data-test="shopping-cart-badge"]', text: items_to_add.size.to_s)
+    end
+  end
+
+  def authenticate(username, password)
+    @session.fill_in 'user-name', with: username
+    @session.fill_in 'password', with: password
+    @session.click_button('Login')
+  end
+
+  def verify_error_message(expected_message)
+    expect(@session).to have_selector('[data-test="error"]', text: expected_message)
+  end
+
+  def add_to_cart(item_name)
+    add_button_selector = "[data-test='add-to-cart-#{item_name}']"
+    if @session.has_selector?(add_button_selector)
+      @session.find(add_button_selector).click
+    else
+      raise "Add to cart button for #{item_name} not found!"
+    end
+  end
+end
