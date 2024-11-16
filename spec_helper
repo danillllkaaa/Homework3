@@ -1,0 +1,22 @@
+require 'capybara'
+require 'rspec'
+
+RSpec.configure do |config|
+  config.add_formatter(:documentation)
+
+  config.after(:each) do |example|
+    if example.exception
+      Dir.mkdir('screenshots') unless Dir.exist?('screenshots')
+
+      time = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
+      sanitized_description = example.description.gsub(/[^\w\-]/, '_')
+      filename = File.join('screenshots', "
+
+      Capybara.current_session.save_screenshot(filename)
+      puts "Screenshot saved to 
+    end
+  end
+end
+
+Capybara.default_driver = :selenium
+Capybara.app_host = 'https://www.saucedemo.com'
